@@ -2,7 +2,6 @@ import math
 
 import torch as th
 import torch.nn as nn
-from data import max_masks
 
 class SiLU(nn.Module):
     def forward(self, x):

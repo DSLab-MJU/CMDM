@@ -11,23 +11,23 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 
 from data_preprocessing import * 
+from params import *
+args = parse_arguments()
 
-directory_path = '' #data_path
+directory_path = args.data_path
 images, size_label, location_label, count_label = process_directory(directory_path)
-
+#print(size_label)
+#print(location_label)
+#print(count_label)
 
 sizes = []
 x_coords = []
 y_coords = []
 
-for (size1, size2), (y1, x1, y2, x2) in zip(size_label, location_label):
+for size1, (x1, y1) in zip(size_label, location_label):
     sizes.append(size1)
     x_coords.append(x1)
     y_coords.append(y1)
-    if size2 != 0 or (x2 != 0 and y2 != 0):  
-        sizes.append(size2)
-        x_coords.append(x2)
-        y_coords.append(y2)
 
 
 data = {'size': sizes,'x_coord': x_coords,'y_coord': y_coords }
@@ -45,7 +45,7 @@ y = df['size_normalized'].values
 kernel = C(1.0, (1e-4, 1e1)) * RBF(10, (1e-4, 1e1))
 gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=10, alpha=1e-2, normalize_y=False)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
 gp.fit(X_train, y_train)
 
 
@@ -88,15 +88,15 @@ def sample_from_distribution(n_samples):
 
 gaussian_aug_conds = []
 
-sampled_data = sample_from_distribution()
+sampled_data = sample_from_distribution(n_samples=1)
 for i in range(len(sampled_data)):
-    gaussian_aug_conds.append([sampled_data[i][0], sampled_data[i][1], sampled_data[i][2], 1])
+    gaussian_aug_conds.append([sampled_data[i][0], sampled_data[i][1], sampled_data[i][2]])
 
 gaussian_aug_conds = np.array(gaussian_aug_conds)
 gaussian_aug_conds = torch.tensor(gaussian_aug_conds, dtype=torch.float32)
+#print(gaussian_aug_conds)
 
-# count >= 2
-def sample_coords(n_samples):
+def sample_coords_mulicount(n_samples):
     samples = kde.resample(n_samples).T
     while (samples <= 0.1).any() or (samples >= 0.90).any():
         samples = kde.resample(n_samples).T
@@ -105,10 +105,10 @@ def sample_coords(n_samples):
 def distance(coord1, coord2):
     return np.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
 
-def sample_from_distribution(n_samples):
+def sample_from_distribution_multicount(n_samples):
     sampled_data = []
-    coords_samples1 = sample_coords(n_samples)
-    coords_samples2 = sample_coords(n_samples)
+    coords_samples1 = sample_coords_mulicount(n_samples)
+    coords_samples2 = sample_coords_mulicount(n_samples)
     for coords1, coords2 in zip(coords_samples1, coords_samples2):
         size_samples1 = sample_size(coords1)
         size_samples2 = sample_size(coords2)
@@ -132,9 +132,11 @@ def sample_from_distribution(n_samples):
 
 gaussian_aug_conds2 = []
 
-sampled_data = sample_from_distribution()
+sampled_data = sample_from_distribution_multicount(n_samples=1)
 for i in range(len(sampled_data)):
-    gaussian_aug_conds2.append([sampled_data[i][0], sampled_data[i][1], sampled_data[i][2], sampled_data[i][3],sampled_data[i][4]/args.image_size, sampled_data[i][5]/args.image_size, 0, 1])
+    gaussian_aug_conds2.append([sampled_data[i][0], sampled_data[i][2]/args.image_size, sampled_data[i][3]/args.image_size])
+    gaussian_aug_conds2.append([sampled_data[i][1], sampled_data[i][4]/args.image_size, sampled_data[i][5]/args.image_size])
 
 gaussian_aug_conds2 = np.array(gaussian_aug_conds2)
 gaussian_aug_conds2 = torch.tensor(gaussian_aug_conds2, dtype=torch.float32)
+#print(gaussian_aug_conds2)

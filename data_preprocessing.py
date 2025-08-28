@@ -15,8 +15,8 @@ import os
 import cv2
 from skimage.measure import label, regionprops
 import re 
-from train import *
-import argparse
+
+from params import *
 args = parse_arguments()
 
 def extract_number(filename):
@@ -73,26 +73,16 @@ def process_directory(directory_path, size_threshold=args.st):
         if filename.endswith('.png') or filename.endswith('.jpg'):
             image_path = os.path.join(directory_path, filename)
             image = cv2.resize(cv2.imread(image_path), (args.image_size, args.image_size))[:,:,1]
+            _, image = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY)
             image_array = np.array(image)
 
             mask_properties = calculate_mask_properties(image_array, size_threshold)
-            sizes = [0] * max_masks
-            locations = [0] * 2 * max_masks  
-            counts = [0] * max_masks
-
-            num_masks = len(mask_properties)
-            if num_masks > 0:
-                counts[num_masks-1] = 1 
 
             for i, prop in enumerate(mask_properties):
-                if i < max_masks:
-                    sizes[i] = prop[0]
-                    locations[i*2] = prop[1][0]  
-                    locations[i*2+1] = prop[1][1]  
+                size_label.append(prop[0])
+                location_label.append([prop[1][1],prop[1][0]])  
 
-            size_label.append(tuple(sizes))
-            location_label.append(tuple(locations))
-            count_label.append(tuple(counts))
+            count_label.append(len(mask_properties))
 
             image = np.expand_dims(image, axis=-1)
             images.append(image)
@@ -120,11 +110,10 @@ def decimal_scaling_normalize(data):
     return normalized_data
 
 class NormMaskDataset(Dataset):
-    def __init__(self, images, sizes, locations, count, transform=None):
+    def __init__(self, images, sizes, locations, transform=None):
         self.images = images
         self.sizes = sizes
         self.locations = locations
-        self.count = count
         self.transform = transform
 
     def __len__(self):
@@ -134,12 +123,11 @@ class NormMaskDataset(Dataset):
         image = self.images[idx]
         size = self.sizes[idx]
         location = self.locations[idx]
-        count = self.count[idx]
 
         image = ToPILImage()(image)
         if self.transform:
             image = self.transform(image)
         image = torch.tensor(image, dtype=torch.float32)
-        label = torch.tensor(list(size)+ list(location) + list(count), dtype=torch.float32)
+        label = torch.tensor([size] + list(location), dtype=torch.float32)
 
         return image, label

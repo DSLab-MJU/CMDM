@@ -9,8 +9,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from modules import *
-from data import max_masks
-data_path = ''
 
 class TimestepBlock(nn.Module):
     @abstractmethod
@@ -236,7 +234,7 @@ class Multi_CondResBlock(CondTimestepBlock):
         # Basic Regressor
         self.size_emb_layers = nn.Sequential(
             linear(
-                max_masks,
+                1,
                 2 * self.out_channels if use_scale_shift_norm else self.out_channels,
             ), 
             SiLU(),
@@ -244,19 +242,12 @@ class Multi_CondResBlock(CondTimestepBlock):
         # Basic Regressor
         self.loc_emb_layers = nn.Sequential(
             linear(
-                max_masks*2,
+                2,
                 2 * self.out_channels if use_scale_shift_norm else self.out_channels,
             ),  
             SiLU(),
         )
 
-        # Basic count embedding layer not in Kvsir-SEG dataset
-        self.count_emb_layers = nn.Sequential(
-            linear(
-                max_masks,
-                2 * self.out_channels if use_scale_shift_norm else self.out_channels,
-            ),  
-        )
         self.out_layers = nn.Sequential(
             normalization(self.out_channels),
             SiLU(),
@@ -285,16 +276,14 @@ class Multi_CondResBlock(CondTimestepBlock):
             h = self.in_layers(x)
             
         emb_out = self.emb_layers(emb).type(h.dtype)
-        size_out = self.size_emb_layers(cond[:, :2]).type(h.dtype)
-        loc_out = self.loc_emb_layers(cond[:, 2:6]).type(h.dtype)
-        count_out = self.count_emb_layers(cond[:, 6:8]).type(h.dtype)
+        size_out = self.size_emb_layers(cond[:, :1]).type(h.dtype)
+        loc_out = self.loc_emb_layers(cond[:, 1:]).type(h.dtype)
 
         while len(emb_out.shape) < len(h.shape):
             emb_out = emb_out[..., None]
 
         size_out = size_out.view(-1, size_out.shape[1],1,1)
         loc_out = loc_out.view(-1, loc_out.shape[1],1,1)
-        count_out = count_out.view(-1, count_out.shape[1],1,1)
             
         if self.use_scale_shift_norm:
             out_norm, out_rest = self.out_layers[0], self.out_layers[1:] 
@@ -303,7 +292,7 @@ class Multi_CondResBlock(CondTimestepBlock):
             h = out_norm(h) * (1 + scale) + shift
             h = out_rest(h)
         else:
-            h = (h * size_out * loc_out * count_out) + emb_out
+            h = (h * size_out * loc_out) + emb_out
             h = self.out_layers(h)
         
         result = self.skip_connection(x) + h
@@ -613,11 +602,8 @@ class UNetModel(nn.Module):
 
     def forward(self, x, timesteps, y=None):
         hs = []
-        
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
-        
         y = y.type(self.dtype)
-        
         h = x.type(self.dtype)
         
         for module in self.input_blocks:

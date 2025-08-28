@@ -19,7 +19,9 @@ from MaskControlUNet import *
 from Diffusion import *
 from train import *
 
+from params import *
 args = parse_arguments()
+
 device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -48,7 +50,7 @@ unet = create_model(
 diffusion = Diffusion(nn_model=unet, betas=(args.beta1, args.beta2), n_T=args.n_T, device=device, drop_prob=args.dp)
 optim = torch.optim.Adam(diffusion.parameters(), lr=args.lrate)
 
-save_dir = ''
+save_dir = args.save_dir
 checkpoint = torch.load(save_dir)  
 diffusion.load_state_dict(checkpoint['model_state_dict'])
 optim.load_state_dict(checkpoint['optimizer_state_dict'])

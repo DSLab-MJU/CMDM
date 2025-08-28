@@ -1,2 +1,0 @@
-# This version is subject to further refinement and modification after printing in a paper or pre-print.
-# Also, the sampling code with pre-trained model will be uploaded after printing on paper or pre-print.
