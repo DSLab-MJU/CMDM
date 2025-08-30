@@ -22,16 +22,17 @@ conda create -n CMDM python=3.8.10
 conda activate CMDM
 conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
 ```
-
+  
 ## Dataset Preparation
 The proposed framework requires medical annotatoin data.
 
 Please organize the dataset with the following structure:
 ```angular2
 ├── ${data_root}
-│ ├── ${train_dataset_dir}
-│ │ ├── masks
-│ │ │ ├── ***.png
+│ ├── ${train_maskdataset_dir}
+│ │ ├── mask_1.png
+│ │ ├── mask_2.png
+│ │ ├── mask_3.png
 ```
 
 ## Training Your Own CMDM
